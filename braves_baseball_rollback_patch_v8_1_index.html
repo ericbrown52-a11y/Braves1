@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Council Grove Braves Baseball - Rollback Patch V8.1</title>
+<style>
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #062510;
+    color: white;
+    font-family: Arial, Helvetica, sans-serif;
+    touch-action: manipulation;
+  }
+
+  #game {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    background: #0e6b2b;
+  }
+
+  #topHud {
+    position: fixed;
+    top: calc(8px + env(safe-area-inset-top));
+    left: 8px;
+    right: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  #scorePanel, #diamondHud {
+    background: rgba(2, 12, 9, 0.82);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    backdrop-filter: blur(6px);
+  }
+
+  #scorePanel {
+    min-width: 190px;
+    padding: 9px 10px;
+  }
+
+  .scoreRow {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-weight: 900;
+    font-size: 14px;
+    line-height: 1.15;
+  }
+
+  .scoreRow .team {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+
+  .badge {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 1000;
+  }
+
+  .badge.braves { background: #d3202a; }
+  .badge.away { background: #2457d6; }
+
+  #countLine {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    color: #d7e7de;
+  }
+
+  .pill {
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 999px;
+    padding: 3px 6px;
+    background: rgba(255,255,255,0.10);
+  }
+
+  #diamondHud {
+    width: 102px;
+    height: 102px;
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  #diamondHud svg {
+    position: absolute;
+    inset: 8px;
+    overflow: visible;
+  }
+
+  .hudPath {
+    fill: none;
+    stroke: rgba(255,255,255,0.45);
+    stroke-width: 2;
+    stroke-dasharray: 4 4;
+  }
+
+  .hudBase {
+    fill: rgba(255,255,255,0.12);
+    stroke: white;
+    stroke-width: 2;
+  }
+
+  .hudBase.occupied {
+    fill: #ffce45;
+  }
+
+  .hudRunner {
+    fill: #d3202a;
+    stroke: white;
+    stroke-width: 2;
+  }
+
+  #message {
+    position: fixed;
+    left: 50%;
+    top: 45%;
+    transform: translate(-50%, -50%);
+    min-width: 190px;
+    max-width: 85vw;
+    padding: 12px 18px;
+    background: rgba(0,0,0,0.70);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 15px;
+    color: white;
+    text-align: center;
+    font-size: 19px;
+    font-weight: 1000;
+    z-index: 20;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+
+  #message.show {
+    opacity: 1;
+  }
+
+  #controls {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 0 12px;
+    gap: 12px;
+    z-index: 15;
+  }
+
+  .controlGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .row {
+    display: flex;
+    gap: 8px;
+  }
+
+  button {
+    border: 0;
+    border-radius: 16px;
+    padding: 12px 15px;
+    min-width: 76px;
+    min-height: 48px;
+    color: white;
+    font-weight: 950;
+    font-size: 14px;
+    letter-spacing: 0.2px;
+    background: linear-gradient(#285ee7, #153e9b);
+    box-shadow: 0 6px 0 rgba(0,0,0,0.32), 0 10px 22px rgba(0,0,0,0.25);
+  }
+
+  button:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.32), 0 6px 14px rgba(0,0,0,0.22);
+  }
+
+  button.primary {
+    min-width: 116px;
+    min-height: 64px;
+    font-size: 20px;
+    background: linear-gradient(#e93138, #a91118);
+  }
+
+  button.secondary {
+    background: linear-gradient(#4d5967, #27323e);
+  }
+
+  button.gold {
+    background: linear-gradient(#ffce45, #b87a0b);
+    color: #211707;
+  }
+
+  button:disabled {
+    opacity: 0.45;
+    transform: none;
+  }
+
+  #miniControls {
+    position: fixed;
+    right: 10px;
+    top: calc(122px + env(safe-area-inset-top));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 15;
+  }
+
+  #miniControls button {
+    min-width: 74px;
+    min-height: 36px;
+    padding: 8px 10px;
+    font-size: 12px;
+    background: rgba(0,0,0,0.50);
+    border: 1px solid rgba(255,255,255,0.20);
+    box-shadow: none;
+    border-radius: 12px;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  @media (max-width: 420px) {
+    #scorePanel {
+      min-width: 176px;
+      padding: 8px;
+    }
+
+    .scoreRow {
+      font-size: 12px;
+    }
+
+    #countLine {
+      font-size: 11px;
+      gap: 4px;
+    }
+
+    #diamondHud {
+      width: 92px;
+      height: 92px;
+    }
+
+    button {
+      min-width: 62px;
+      padding: 10px 11px;
+      font-size: 12px;
+    }
+
+    button.primary {
+      min-width: 100px;
+      font-size: 17px;
+    }
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="topHud">
+  <div id="scorePanel">
+    <div class="scoreRow">
+      <span class="team"><span class="badge away">A</span> Away</span>
+      <span id="awayScore">0</span>
+    </div>
+    <div class="scoreRow">
+      <span class="team"><span class="badge braves">B</span> Braves</span>
+      <span id="homeScore">0</span>
+    </div>
+    <div id="countLine">
+      <span class="pill" id="inningText">Bot 1</span>
+      <span class="pill" id="countText">0-0</span>
+      <span class="pill" id="outsText">0 outs</span>
+      <span class="pill" id="modeText">Batting</span>
+    </div>
+  </div>
+
+  <div id="diamondHud">
+    <svg viewBox="0 0 100 100">
+      <path class="hudPath" d="M50 88 L88 50 L50 12 L12 50 Z" />
+      <rect id="hud2" class="hudBase" x="44" y="6" width="12" height="12" transform="rotate(45 50 12)" />
+      <rect id="hud3" class="hudBase" x="6" y="44" width="12" height="12" transform="rotate(45 12 50)" />
+      <rect id="hud1" class="hudBase" x="82" y="44" width="12" height="12" transform="rotate(45 88 50)" />
+      <rect class="hudBase" x="44" y="82" width="12" height="12" transform="rotate(45 50 88)" />
+      <circle id="runner1" class="hudRunner" cx="88" cy="50" r="5" style="display:none" />
+      <circle id="runner2" class="hudRunner" cx="50" cy="12" r="5" style="display:none" />
+      <circle id="runner3" class="hudRunner" cx="12" cy="50" r="5" style="display:none" />
+    </svg>
+  </div>
+</div>
+
+<div id="message"></div>
+
+<div id="miniControls">
+  <button id="resetBtn">Reset</button>
+</div>
+
+<div id="controls">
+  <div class="controlGroup">
+    <div class="row">
+      <button class="secondary" id="aimLow">Low</button>
+      <button class="secondary" id="aimMid">Mid</button>
+      <button class="secondary" id="aimHigh">High</button>
+    </div>
+    <div class="row">
+      <button class="gold" id="stealBtn">Steal</button>
+    </div>
+  </div>
+  <div class="controlGroup">
+    <button class="primary" id="swingBtn">SWING</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  const ui = {
+    awayScore: document.getElementById("awayScore"),
+    homeScore: document.getElementById("homeScore"),
+    inningText: document.getElementById("inningText"),
+    countText: document.getElementById("countText"),
+    outsText: document.getElementById("outsText"),
+    modeText: document.getElementById("modeText"),
+    message: document.getElementById("message"),
+    swingBtn: document.getElementById("swingBtn"),
+    stealBtn: document.getElementById("stealBtn"),
+    resetBtn: document.getElementById("resetBtn"),
+    aimLow: document.getElementById("aimLow"),
+    aimMid: document.getElementById("aimMid"),
+    aimHigh: document.getElementById("aimHigh"),
+    hud1: document.getElementById("hud1"),
+    hud2: document.getElementById("hud2"),
+    hud3: document.getElementById("hud3"),
+    runner1: document.getElementById("runner1"),
+    runner2: document.getElementById("runner2"),
+    runner3: document.getElementById("runner3")
+  };
+
+  let W = 0;
+  let H = 0;
+  let DPR = 1;
+  const field = {};
+
+  const game = {
+    inning: 1,
+    half: "bottom",
+    outs: 0,
+    balls: 0,
+    strikes: 0,
+    away: 0,
+    home: 0,
+    phase: "batting",
+    aim: "mid",
+    runners: { first: false, second: false, third: false },
+    ball: null,
+    batter: { swingTimer: 0 },
+    fielders: [],
+    activeFielder: null,
+    contactFlash: 0,
+    messageTimer: 0,
+    last: 0
+  };
+
+  function resize() {
+    DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    computeField();
+    resetFielderPositions();
+  }
+
+  function computeField() {
+    const cx = W / 2;
+    const homeY = H * 0.78;
+    const gap = Math.min(W * 0.25, H * 0.19);
+
+    field.home = { x: cx, y: homeY };
+    field.first = { x: cx + gap, y: homeY - gap * 0.72 };
+    field.second = { x: cx, y: homeY - gap * 1.44 };
+    field.third = { x: cx - gap, y: homeY - gap * 0.72 };
+    field.mound = { x: cx, y: homeY - gap * 0.76 };
+
+    field.strike = {
+      x: cx - Math.min(96, W * 0.24) / 2,
+      y: H * 0.43,
+      w: Math.min(96, W * 0.24),
+      h: Math.min(142, H * 0.205)
+    };
+
+    field.fielderHomes = [
+      { label: "P", x: field.mound.x, y: field.mound.y - 4 },
+      { label: "1B", x: field.first.x + gap * 0.12, y: field.first.y + gap * 0.04 },
+      { label: "2B", x: cx + gap * 0.62, y: homeY - gap * 1.08 },
+      { label: "SS", x: cx - gap * 0.62, y: homeY - gap * 1.08 },
+      { label: "3B", x: field.third.x - gap * 0.12, y: field.third.y + gap * 0.04 },
+      { label: "LF", x: cx - gap * 1.34, y: homeY - gap * 2.05 },
+      { label: "CF", x: cx, y: homeY - gap * 2.34 },
+      { label: "RF", x: cx + gap * 1.34, y: homeY - gap * 2.05 }
+    ];
+  }
+
+  function resetFielderPositions() {
+    game.fielders = field.fielderHomes.map(p => ({
+      label: p.label,
+      x: p.x,
+      y: p.y,
+      homeX: p.x,
+      homeY: p.y,
+      tx: p.x,
+      ty: p.y,
+      moving: false
+    }));
+  }
+
+  function showMessage(text, ms = 850) {
+    ui.message.textContent = text;
+    ui.message.classList.add("show");
+    game.messageTimer = ms / 1000;
+  }
+
+  function resetGame() {
+    game.inning = 1;
+    game.half = "bottom";
+    game.outs = 0;
+    game.balls = 0;
+    game.strikes = 0;
+    game.away = 0;
+    game.home = 0;
+    game.phase = "batting";
+    game.aim = "mid";
+    game.runners = { first: false, second: false, third: false };
+    game.ball = null;
+    game.contactFlash = 0;
+    game.batter.swingTimer = 0;
+    resetFielderPositions();
+    updateUI();
+    showMessage("Braves at bat", 900);
+    setTimeout(newPitch, 650);
+  }
+
+  function updateUI() {
+    ui.awayScore.textContent = game.away;
+    ui.homeScore.textContent = game.home;
+    ui.inningText.textContent = (game.half === "top" ? "Top " : "Bot ") + game.inning;
+    ui.countText.textContent = game.balls + "-" + game.strikes;
+    ui.outsText.textContent = game.outs + (game.outs === 1 ? " out" : " outs");
+    ui.modeText.textContent = game.phase === "batting" ? "Batting" : game.phase === "fielding" ? "Ball in play" : "Reset";
+
+    ui.hud1.classList.toggle("occupied", game.runners.first);
+    ui.hud2.classList.toggle("occupied", game.runners.second);
+    ui.hud3.classList.toggle("occupied", game.runners.third);
+    ui.runner1.style.display = game.runners.first ? "block" : "none";
+    ui.runner2.style.display = game.runners.second ? "block" : "none";
+    ui.runner3.style.display = game.runners.third ? "block" : "none";
+  }
+
+  function newPitch() {
+    if (game.phase !== "batting") return;
+
+    const z = field.strike;
+    const inZone = Math.random() < 0.68;
+    let targetX;
+    let targetY;
+
+    if (inZone) {
+      targetX = rand(z.x + 16, z.x + z.w - 16);
+      targetY = rand(z.y + 20, z.y + z.h - 20);
+    } else {
+      const miss = pick(["left", "right", "high", "low"]);
+      if (miss === "left") {
+        targetX = rand(z.x - 54, z.x - 14);
+        targetY = rand(z.y, z.y + z.h);
+      } else if (miss === "right") {
+        targetX = rand(z.x + z.w + 14, z.x + z.w + 54);
+        targetY = rand(z.y, z.y + z.h);
+      } else if (miss === "high") {
+        targetX = rand(z.x, z.x + z.w);
+        targetY = rand(z.y - 54, z.y - 14);
+      } else {
+        targetX = rand(z.x, z.x + z.w);
+        targetY = rand(z.y + z.h + 14, z.y + z.h + 54);
+      }
+    }
+
+    const pitchType = pick(["Fastball", "Curve", "Changeup"]);
+    let duration = 1.42; // rollback patch: intentionally slower than previous versions
+    if (pitchType === "Curve") duration = 1.62;
+    if (pitchType === "Changeup") duration = 1.78;
+
+    game.ball = {
+      mode: "pitch",
+      type: pitchType,
+      x: field.mound.x,
+      y: field.mound.y,
+      startX: field.mound.x,
+      startY: field.mound.y,
+      targetX,
+      targetY,
+      t: 0,
+      duration,
+      curve: pitchType === "Curve" ? rand(-34, 34) : rand(-8, 8),
+      hit: false,
+      inTimingWindow: false
+    };
+
+    ui.swingBtn.disabled = false;
+    game.phase = "batting";
+    updateUI();
+  }
+
+  function swing() {
+    if (!game.ball || game.ball.mode !== "pitch" || game.ball.hit || game.phase !== "batting") return;
+
+    game.batter.swingTimer = 0.28;
+    const b = game.ball;
+    const z = field.strike;
+
+    const timingScore = 1 - Math.abs(b.t - 0.82) / 0.34;
+    const plateX = z.x + z.w / 2;
+    const aimY = getAimY();
+
+    const horizontalScore = 1 - Math.abs(b.x - plateX) / (z.w * 0.95);
+    const verticalScore = 1 - Math.abs(b.y - aimY) / (z.h * 0.62);
+    const zoneForgiveness = isNearStrikeZone(b.x, b.y, 28) ? 0.18 : 0;
+
+    const contactScore =
+      clamp(timingScore, 0, 1) * 0.52 +
+      clamp(horizontalScore, 0, 1) * 0.20 +
+      clamp(verticalScore, 0, 1) * 0.20 +
+      zoneForgiveness;
+
+    if (contactScore >= 0.44) {
+      b.hit = true;
+      putBallInPlay(contactScore);
+    } else {
+      b.hit = true;
+      game.strikes++;
+      ui.swingBtn.disabled = true;
+      showMessage("Swing and miss", 650);
+      finishPitch();
+    }
+  }
+
+  function finishPitch() {
+    updateUI();
+
+    if (game.strikes >= 3) {
+      addOut("Strikeout");
+      return;
+    }
+
+    if (game.balls >= 4) {
+      walk();
+      return;
+    }
+
+    game.ball = null;
+    setTimeout(newPitch, 700);
+  }
+
+  function takePitch() {
+    if (!game.ball || game.ball.mode !== "pitch" || game.ball.hit) return;
+
+    const b = game.ball;
+    b.hit = true;
+    ui.swingBtn.disabled = true;
+
+    if (isInStrikeZone(b.x, b.y)) {
+      game.strikes++;
+      showMessage("Strike", 600);
+    } else {
+      game.balls++;
+      showMessage("Ball", 600);
+    }
+
+    finishPitch();
+  }
+
+  function putBallInPlay(contactScore) {
+    ui.swingBtn.disabled = true;
+    game.phase = "fielding";
+
+    const power = clamp(contactScore, 0.44, 1);
+    const spray = rand(-1, 1);
+    const gap = Math.abs(field.first.x - field.home.x);
+
+    const hitType = power > 0.82 ? "drive" : power > 0.62 ? "line" : "ground";
+    let targetY = field.home.y - gap * rand(1.15, 2.1);
+    if (hitType === "drive") targetY = field.home.y - gap * rand(2.0, 2.75);
+    if (hitType === "ground") targetY = field.home.y - gap * rand(0.85, 1.45);
+
+    const targetX = clamp(field.home.x + spray * gap * rand(0.6, 1.75), W * 0.06, W * 0.94);
+
+    game.ball = {
+      mode: "hit",
+      hitType,
+      x: field.home.x,
+      y: field.home.y - 24,
+      startX: field.home.x,
+      startY: field.home.y - 24,
+      targetX,
+      targetY,
+      t: 0,
+      duration: hitType === "drive" ? 1.18 : hitType === "line" ? 0.88 : 0.72,
+      landed: false,
+      fielded: false,
+      contactScore: power
+    };
+
+    sendFielderToBall(targetX, targetY);
+    showMessage(hitType === "ground" ? "Ground ball" : hitType === "line" ? "Line drive" : "Driven deep", 550);
+    updateUI();
+  }
+
+  function sendFielderToBall(x, y) {
+    let best = null;
+    let bestDist = Infinity;
+
+    for (const f of game.fielders) {
+      const d = Math.hypot(f.x - x, f.y - y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = f;
+      }
+    }
+
+    game.activeFielder = best;
+
+    for (const f of game.fielders) {
+      if (f === best) {
+        f.tx = x;
+        f.ty = y;
+        f.moving = true;
+      } else {
+        const nudge = 0.15;
+        f.tx = f.homeX + (x - f.homeX) * nudge;
+        f.ty = f.homeY + (y - f.homeY) * nudge;
+        f.moving = true;
+      }
+    }
+  }
+
+  function resolveBattedBall() {
+    const score = game.ball ? game.ball.contactScore : 0.5;
+    const r = Math.random();
+
+    let result;
+    if (score > 0.86) {
+      result = r < 0.10 ? "out" : r < 0.67 ? "single" : r < 0.91 ? "double" : "triple";
+    } else if (score > 0.66) {
+      result = r < 0.26 ? "out" : r < 0.80 ? "single" : "double";
+    } else {
+      result = r < 0.43 ? "out" : "single";
+    }
+
+    if (result === "out") {
+      addOut("Out on the play");
+    } else {
+      advanceRunners(result);
+      showMessage(result[0].toUpperCase() + result.slice(1), 850);
+      resetCount();
+      setTimeout(nextBatter, 850);
+    }
+
+    game.ball = null;
+  }
+
+  function advanceRunners(result) {
+    const bases = result === "single" ? 1 : result === "double" ? 2 : result === "triple" ? 3 : 4;
+    const old = { ...game.runners };
+    let runs = 0;
+    const newBases = { first: false, second: false, third: false };
+
+    function place(startBase) {
+      const current = startBase === "first" ? 1 : startBase === "second" ? 2 : 3;
+      const next = current + bases;
+      if (next >= 4) {
+        runs++;
+      } else if (next === 3) {
+        newBases.third = true;
+      } else if (next === 2) {
+        newBases.second = true;
+      } else if (next === 1) {
+        newBases.first = true;
+      }
+    }
+
+    if (old.third) place("third");
+    if (old.second) place("second");
+    if (old.first) place("first");
+
+    if (bases >= 4) {
+      runs++;
+    } else if (bases === 3) {
+      newBases.third = true;
+    } else if (bases === 2) {
+      newBases.second = true;
+    } else {
+      newBases.first = true;
+    }
+
+    if (game.half === "bottom") game.home += runs;
+    else game.away += runs;
+
+    game.runners = newBases;
+    updateUI();
+  }
+
+  function walk() {
+    showMessage("Walk", 750);
+
+    if (game.runners.first && game.runners.second && game.runners.third) {
+      if (game.half === "bottom") game.home++;
+      else game.away++;
+    }
+
+    if (game.runners.first && game.runners.second) game.runners.third = true;
+    if (game.runners.first) game.runners.second = true;
+    game.runners.first = true;
+
+    resetCount();
+    updateUI();
+    setTimeout(nextBatter, 800);
+  }
+
+  function addOut(label) {
+    game.outs++;
+    game.ball = null;
+    resetCount();
+    showMessage(label, 850);
+
+    if (game.outs >= 3) {
+      setTimeout(changeSides, 900);
+    } else {
+      setTimeout(nextBatter, 850);
+    }
+
+    updateUI();
+  }
+
+  function nextBatter() {
+    game.phase = "batting";
+    resetFielderPositions();
+    updateUI();
+    setTimeout(newPitch, 500);
+  }
+
+  function changeSides() {
+    game.runners = { first: false, second: false, third: false };
+    game.outs = 0;
+    resetCount();
+
+    if (game.half === "bottom") {
+      game.half = "top";
+    } else {
+      game.half = "bottom";
+      game.inning++;
+    }
+
+    if (game.inning > 3) {
+      showMessage(game.home >= game.away ? "Braves win!" : "Final", 1800);
+      setTimeout(resetGame, 2200);
+      return;
+    }
+
+    game.phase = "batting";
+    resetFielderPositions();
+    updateUI();
+    showMessage(game.half === "bottom" ? "Braves at bat" : "Away at bat", 850);
+    setTimeout(newPitch, 850);
+  }
+
+  function resetCount() {
+    game.balls = 0;
+    game.strikes = 0;
+    updateUI();
+  }
+
+  function steal() {
+    if (game.phase !== "batting") return;
+
+    if (game.runners.second && !game.runners.third) {
+      game.runners.third = true;
+      game.runners.second = false;
+      showMessage("Steal of third", 700);
+    } else if (game.runners.first && !game.runners.second) {
+      game.runners.second = true;
+      game.runners.first = false;
+      showMessage("Steal of second", 700);
+    } else {
+      showMessage("No clean steal", 650);
+    }
+
+    updateUI();
+  }
+
+  function getAimY() {
+    const z = field.strike;
+    if (game.aim === "high") return z.y + z.h * 0.22;
+    if (game.aim === "low") return z.y + z.h * 0.78;
+    return z.y + z.h * 0.5;
+  }
+
+  function isInStrikeZone(x, y) {
+    const z = field.strike;
+    return x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h;
+  }
+
+  function isNearStrikeZone(x, y, pad) {
+    const z = field.strike;
+    return x >= z.x - pad && x <= z.x + z.w + pad && y >= z.y - pad && y <= z.y + z.h + pad;
+  }
+
+  function update(dt) {
+    if (game.messageTimer > 0) {
+      game.messageTimer -= dt;
+      if (game.messageTimer <= 0) ui.message.classList.remove("show");
+    }
+
+    if (game.batter.swingTimer > 0) {
+      game.batter.swingTimer = Math.max(0, game.batter.swingTimer - dt);
+    }
+
+    if (game.contactFlash > 0) {
+      game.contactFlash = Math.max(0, game.contactFlash - dt);
+    }
+
+    updateBall(dt);
+    updateFielders(dt);
+  }
+
+  function updateBall(dt) {
+    const b = game.ball;
+    if (!b) return;
+
+    if (b.mode === "pitch") {
+      b.t += dt / b.duration;
+      const t = clamp(b.t, 0, 1);
+      const curveOffset = Math.sin(t * Math.PI) * b.curve;
+      b.x = lerp(b.startX, b.targetX, t) + curveOffset;
+      b.y = lerp(b.startY, b.targetY, t);
+
+      b.inTimingWindow = b.t >= 0.66 && b.t <= 0.96 && isNearStrikeZone(b.x, b.y, 42);
+
+      if (b.inTimingWindow) {
+        game.contactFlash = 0.08;
+      }
+
+      if (t >= 1) {
+        takePitch();
+      }
+    } else if (b.mode === "hit") {
+      b.t += dt / b.duration;
+      const t = clamp(b.t, 0, 1);
+      const e = ease(t);
+      b.x = lerp(b.startX, b.targetX, e);
+      b.y = lerp(b.startY, b.targetY, e);
+
+      if (t >= 1) {
+        b.landed = true;
+      }
+
+      const f = game.activeFielder;
+      if (f && Math.hypot(f.x - b.x, f.y - b.y) < 24 && t > 0.48) {
+        b.fielded = true;
+        resolveBattedBall();
+      }
+
+      if (t >= 1.1) {
+        resolveBattedBall();
+      }
+    }
+  }
+
+  function updateFielders(dt) {
+    for (const f of game.fielders) {
+      const dx = f.tx - f.x;
+      const dy = f.ty - f.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 1) {
+        const speed = f === game.activeFielder ? 210 : 110;
+        const step = Math.min(d, speed * dt);
+        f.x += dx / d * step;
+        f.y += dy / d * step;
+      }
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawGrass();
+    drawField();
+    drawFielders();
+    drawBatterView();
+    drawBall();
+  }
+
+  function drawGrass() {
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, "#11733a");
+    grad.addColorStop(0.55, "#0d6a2d");
+    grad.addColorStop(1, "#083917");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = "#ffffff";
+    for (let i = -W; i < W * 2; i += 84) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i + 42, 0);
+      ctx.lineTo(i + W * 0.45, H);
+      ctx.lineTo(i + W * 0.45 - 42, H);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawField() {
+    ctx.save();
+
+    // Dirt diamond
+    ctx.fillStyle = "#9c642e";
+    ctx.strokeStyle = "rgba(255,255,255,0.82)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(field.home.x, field.home.y);
+    ctx.lineTo(field.first.x, field.first.y);
+    ctx.lineTo(field.second.x, field.second.y);
+    ctx.lineTo(field.third.x, field.third.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Green infield middle
+    ctx.fillStyle = "#11743a";
+    const cx = field.home.x;
+    const cy = (field.home.y + field.second.y) / 2;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, Math.abs(field.first.x - field.home.x) * 0.42, Math.abs(field.home.y - field.second.y) * 0.32, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Mound
+    ctx.fillStyle = "#875326";
+    ctx.beginPath();
+    ctx.ellipse(field.mound.x, field.mound.y, 34, 22, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawBase(field.home, "H", 17);
+    drawBase(field.first, "1B", 13);
+    drawBase(field.second, "2B", 13);
+    drawBase(field.third, "3B", 13);
+
+    ctx.restore();
+  }
+
+  function drawBatterView() {
+    const z = field.strike;
+
+    // Home plate focus dirt
+    ctx.save();
+    ctx.fillStyle = "rgba(128, 77, 31, 0.72)";
+    ctx.beginPath();
+    ctx.ellipse(field.home.x, field.home.y + 18, Math.min(142, W * 0.32), 58, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Batter
+    drawBatter(field.home.x - 76, field.home.y - 30, game.batter.swingTimer);
+
+    // Home plate
+    ctx.fillStyle = "#f4f1df";
+    ctx.strokeStyle = "rgba(0,0,0,0.45)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(field.home.x - 23, field.home.y - 10);
+    ctx.lineTo(field.home.x + 23, field.home.y - 10);
+    ctx.lineTo(field.home.x + 23, field.home.y + 9);
+    ctx.lineTo(field.home.x, field.home.y + 31);
+    ctx.lineTo(field.home.x - 23, field.home.y + 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Strike zone
+    if (game.contactFlash > 0) {
+      ctx.fillStyle = "rgba(255, 206, 69, 0.18)";
+      ctx.strokeStyle = "#ffce45";
+      ctx.lineWidth = 5;
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.strokeStyle = "rgba(255,255,255,0.94)";
+      ctx.lineWidth = 4;
+    }
+    roundRect(z.x, z.y, z.w, z.h, 8);
+    ctx.fill();
+    ctx.stroke();
+
+    // Timing window halo
+    if (game.ball && game.ball.mode === "pitch" && game.ball.inTimingWindow) {
+      ctx.strokeStyle = "rgba(255, 206, 69, 0.95)";
+      ctx.lineWidth = 3;
+      roundRect(z.x - 9, z.y - 9, z.w + 18, z.h + 18, 13);
+      ctx.stroke();
+
+      ctx.fillStyle = "#ffce45";
+      ctx.font = "900 14px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("SWING WINDOW", z.x + z.w / 2, z.y - 15);
+    }
+
+    // Aim guide
+    ctx.strokeStyle = "rgba(255,206,69,0.72)";
+    ctx.lineWidth = 3;
+    const ay = getAimY();
+    ctx.beginPath();
+    ctx.moveTo(z.x - 12, ay);
+    ctx.lineTo(z.x + z.w + 12, ay);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawBatter(x, y, swingTimer) {
+    ctx.save();
+    ctx.translate(x, y);
+
+    // Body
+    ctx.fillStyle = "#d3202a";
+    roundRect(-16, 15, 32, 45, 12);
+    ctx.fill();
+
+    // Head
+    ctx.fillStyle = "#f0bb84";
+    ctx.beginPath();
+    ctx.arc(0, 0, 13, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Helmet
+    ctx.fillStyle = "#142c57";
+    ctx.beginPath();
+    ctx.arc(0, -3, 14, Math.PI, Math.PI * 2);
+    ctx.fill();
+
+    // Legs
+    ctx.strokeStyle = "#101010";
+    ctx.lineWidth = 5;
+    ctx.lineCap = "round";
+    line(-8, 58, -20, 83);
+    line(8, 58, 16, 83);
+
+    // Arms
+    ctx.strokeStyle = "#f0bb84";
+    ctx.lineWidth = 5;
+    line(-8, 24, -28, 38);
+    line(8, 25, 28, 36);
+
+    // Bat swing
+    const swing = swingTimer > 0 ? (1 - swingTimer / 0.28) : 0;
+    const angle = -0.9 - swing * 4.7;
+    ctx.strokeStyle = "#d8b878";
+    ctx.lineWidth = 6;
+    line(27, 36, 27 + Math.cos(angle) * 76, 36 + Math.sin(angle) * 76);
+
+    ctx.restore();
+  }
+
+  function drawFielders() {
+    for (const f of game.fielders) {
+      drawPlayer(f.x, f.y, f.label, f === game.activeFielder ? "#ffffff" : "#dbe8f2");
+    }
+  }
+
+  function drawPlayer(x, y, label, color) {
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.beginPath();
+    ctx.ellipse(x, y + 16, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = color;
+    roundRect(x - 11, y - 5, 22, 22, 7);
+    ctx.fill();
+
+    ctx.fillStyle = "#f1bd88";
+    ctx.beginPath();
+    ctx.arc(x, y - 13, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#08120d";
+    ctx.font = "900 9px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(label, x, y + 9);
+    ctx.restore();
+  }
+
+  function drawBall() {
+    const b = game.ball;
+    if (!b) return;
+
+    let z = 0;
+    if (b.mode === "hit") {
+      z = Math.sin(clamp(b.t, 0, 1) * Math.PI) * (b.hitType === "ground" ? 12 : b.hitType === "line" ? 44 : 86);
+    } else {
+      z = (1 - b.t) * 16;
+    }
+
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.beginPath();
+    ctx.ellipse(b.x, b.y + 9, 9, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#fff7e9";
+    ctx.strokeStyle = "#c83232";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y - z * 0.22, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (b.mode === "pitch") {
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.font = "900 11px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(b.type, b.x, b.y - z * 0.22 - 14);
+    }
+
+    ctx.restore();
+  }
+
+  function drawBase(p, label, size) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = "#f4f1df";
+    ctx.strokeStyle = "rgba(0,0,0,0.4)";
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(-size / 2, -size / 2, size, size);
+    ctx.strokeRect(-size / 2, -size / 2, size, size);
+    ctx.restore();
+
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.font = "900 10px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(label, p.x, p.y - 17);
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function line(x1, y1, x2, y2) {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+
+  function loop(ts) {
+    if (!game.last) game.last = ts;
+    const dt = Math.min(0.033, (ts - game.last) / 1000);
+    game.last = ts;
+
+    update(dt);
+    draw();
+
+    requestAnimationFrame(loop);
+  }
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function rand(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function pick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function ease(t) {
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
+
+  ui.swingBtn.addEventListener("click", swing);
+  ui.stealBtn.addEventListener("click", steal);
+  ui.resetBtn.addEventListener("click", resetGame);
+
+  ui.aimLow.addEventListener("click", () => {
+    game.aim = "low";
+    showMessage("Aim: Low", 450);
+  });
+  ui.aimMid.addEventListener("click", () => {
+    game.aim = "mid";
+    showMessage("Aim: Mid", 450);
+  });
+  ui.aimHigh.addEventListener("click", () => {
+    game.aim = "high";
+    showMessage("Aim: High", 450);
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "Space") swing();
+  });
+
+  window.addEventListener("resize", resize);
+  resize();
+  resetGame();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
