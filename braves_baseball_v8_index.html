@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<title>Council Grove Braves Baseball - Version 8</title>
+<style>
+  :root{
+    --bg:#061b12;
+    --grass:#1d7a3a;
+    --grass2:#155d2c;
+    --dirt:#a86b32;
+    --dirt2:#7e4d26;
+    --chalk:#f4f1df;
+    --ink:#08120d;
+    --gold:#ffce45;
+    --navy:#142c57;
+    --braves:#d82028;
+    --panel:rgba(6,16,24,.86);
+    --panel2:rgba(255,255,255,.10);
+    --text:#f7fbff;
+    --muted:#bed0dc;
+    --good:#65ff9f;
+    --bad:#ff5d5d;
+  }
+  html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:var(--bg);
+    font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    color:var(--text);
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #wrap{
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:
+      radial-gradient(circle at 50% 8%, rgba(255,255,255,.08), transparent 30%),
+      linear-gradient(#08251a,#03100b 72%);
+  }
+  canvas{
+    width:100vw;
+    height:100vh;
+    display:block;
+    background:#0b2a17;
+  }
+  .hud{
+    position:fixed;
+    left:10px;
+    right:10px;
+    top:calc(8px + env(safe-area-inset-top));
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:8px;
+    pointer-events:none;
+    z-index:4;
+  }
+  .scoreboard{
+    background:var(--panel);
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:0 8px 30px rgba(0,0,0,.22);
+    border-radius:14px;
+    padding:9px 11px;
+    min-width:205px;
+    backdrop-filter:blur(8px);
+  }
+  .score-row{
+    display:grid;
+    grid-template-columns:1fr auto auto;
+    align-items:center;
+    gap:8px;
+    font-weight:900;
+    letter-spacing:.3px;
+    line-height:1.1;
+  }
+  .score-row .team{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:13px;
+  }
+  .tag{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    font-size:11px;
+    font-weight:1000;
+  }
+  .tag.braves{background:var(--braves)}
+  .tag.away{background:#3a74ff}
+  .score-row .num{
+    font-size:18px;
+    width:22px;
+    text-align:right;
+  }
+  .status{
+    margin-top:6px;
+    display:flex;
+    gap:7px;
+    flex-wrap:wrap;
+    font-size:12px;
+    color:var(--muted);
+    font-weight:800;
+  }
+  .pill{
+    background:rgba(255,255,255,.10);
+    border:1px solid rgba(255,255,255,.12);
+    padding:3px 7px;
+    border-radius:999px;
+  }
+  .diamondPanel{
+    width:108px;
+    height:108px;
+    background:var(--panel);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:16px;
+    box-shadow:0 8px 30px rgba(0,0,0,.22);
+    backdrop-filter:blur(8px);
+    position:relative;
+  }
+  .diamondPanel svg{
+    position:absolute;
+    inset:8px;
+    overflow:visible;
+  }
+  .baseHud{
+    fill:rgba(255,255,255,.14);
+    stroke:rgba(255,255,255,.55);
+    stroke-width:2;
+  }
+  .baseHud.occ{fill:var(--gold);stroke:#fff}
+  .runnerDot{
+    fill:var(--braves);
+    stroke:#fff;
+    stroke-width:2.5;
+    filter:drop-shadow(0 3px 3px rgba(0,0,0,.35));
+  }
+  .basePath{
+    fill:none;
+    stroke:rgba(255,255,255,.35);
+    stroke-width:2;
+    stroke-linecap:round;
+    stroke-dasharray:4 4;
+  }
+  .message{
+    position:fixed;
+    left:50%;
+    top:46%;
+    transform:translate(-50%,-50%);
+    background:rgba(0,0,0,.62);
+    border:1px solid rgba(255,255,255,.20);
+    color:white;
+    padding:10px 16px;
+    border-radius:16px;
+    text-align:center;
+    min-width:190px;
+    max-width:82vw;
+    font-weight:950;
+    font-size:19px;
+    text-shadow:0 2px 6px rgba(0,0,0,.45);
+    opacity:0;
+    transition:opacity .18s ease;
+    pointer-events:none;
+    z-index:6;
+  }
+  .message.show{opacity:1}
+  .controls{
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:calc(10px + env(safe-area-inset-bottom));
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    padding:0 12px;
+    gap:10px;
+    z-index:5;
+    pointer-events:none;
+  }
+  .cluster{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    pointer-events:auto;
+  }
+  .row{
+    display:flex;
+    gap:8px;
+    justify-content:center;
+  }
+  button{
+    border:0;
+    border-radius:16px;
+    padding:12px 14px;
+    color:white;
+    font-weight:950;
+    font-size:14px;
+    letter-spacing:.2px;
+    background:linear-gradient(#295eea,#163b96);
+    box-shadow:0 6px 0 rgba(0,0,0,.25),0 10px 22px rgba(0,0,0,.25);
+    min-width:74px;
+    min-height:48px;
+  }
+  button:active{
+    transform:translateY(4px);
+    box-shadow:0 2px 0 rgba(0,0,0,.28),0 6px 14px rgba(0,0,0,.2);
+  }
+  button.action{
+    min-width:112px;
+    min-height:62px;
+    font-size:18px;
+    background:linear-gradient(#e92e35,#a80e16);
+  }
+  button.alt{
+    background:linear-gradient(#4e5a67,#27303a);
+  }
+  button.gold{
+    background:linear-gradient(#ffcd44,#b8780a);
+    color:#201606;
+  }
+  button.good{
+    background:linear-gradient(#36c975,#14783e);
+  }
+  .tiny{
+    min-width:52px;
+    min-height:42px;
+    padding:9px 10px;
+    font-size:12px;
+  }
+  .throwGrid{
+    display:grid;
+    grid-template-columns:repeat(3,56px);
+    grid-template-rows:repeat(3,44px);
+    gap:6px;
+    pointer-events:auto;
+  }
+  .throwGrid button{
+    min-width:0;
+    min-height:0;
+    padding:6px;
+    border-radius:13px;
+    font-size:13px;
+  }
+  .throwGrid .empty{visibility:hidden}
+  .hidden{display:none!important}
+  .topButtons{
+    position:fixed;
+    right:10px;
+    top:calc(126px + env(safe-area-inset-top));
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    z-index:5;
+  }
+  .topButtons button{
+    pointer-events:auto;
+    min-width:78px;
+    min-height:38px;
+    padding:8px 10px;
+    font-size:12px;
+    border-radius:12px;
+    background:rgba(0,0,0,.48);
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:none;
+  }
+  .help{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.74);
+    z-index:10;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .help.show{display:flex}
+  .card{
+    width:min(540px,92vw);
+    max-height:86vh;
+    overflow:auto;
+    background:#101923;
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:22px;
+    padding:18px;
+    box-shadow:0 30px 80px rgba(0,0,0,.45);
+  }
+  .card h1{
+    margin:0 0 8px;
+    font-size:24px;
+  }
+  .card h2{
+    font-size:16px;
+    margin:15px 0 6px;
+  }
+  .card p,.card li{
+    color:#d9e7ef;
+    line-height:1.35;
+    font-size:14px;
+  }
+  .card ul{
+    padding-left:19px;
+  }
+  .card button{
+    width:100%;
+    margin-top:10px;
+  }
+  @media (max-width:420px){
+    .scoreboard{min-width:184px;padding:8px 9px}
+    .diamondPanel{width:96px;height:96px}
+    .score-row .team{font-size:12px}
+    .score-row .num{font-size:17px}
+    .status{font-size:11px;gap:4px}
+    .pill{padding:3px 6px}
+    button{min-width:64px;padding:10px 11px}
+    button.action{min-width:98px}
+    .throwGrid{grid-template-columns:repeat(3,51px)}
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+</div>
+
+<div class="hud">
+  <div class="scoreboard">
+    <div class="score-row"><div class="team"><span class="tag away">A</span><span id="awayName">Opponents</span></div><div class="num" id="awayScore">0</div></div>
+    <div class="score-row"><div class="team"><span class="tag braves">B</span><span>Braves</span></div><div class="num" id="homeScore">0</div></div>
+    <div class="status">
+      <span class="pill" id="inning">Bot 1</span>
+      <span class="pill" id="count">0-0</span>
+      <span class="pill" id="outs">0 out</span>
+      <span class="pill" id="mode">Batting</span>
+    </div>
+  </div>
+  <div class="diamondPanel" aria-label="Runner diamond">
+    <svg id="diamondSvg" viewBox="0 0 100 100">
+      <path class="basePath" d="M50 88 L88 50 L50 12 L12 50 Z"></path>
+      <rect id="base2" class="baseHud" x="44" y="6" width="12" height="12" transform="rotate(45 50 12)"></rect>
+      <rect id="base3" class="baseHud" x="6" y="44" width="12" height="12" transform="rotate(45 12 50)"></rect>
+      <rect id="base1" class="baseHud" x="82" y="44" width="12" height="12" transform="rotate(45 88 50)"></rect>
+      <rect id="baseH" class="baseHud" x="44" y="82" width="12" height="12" transform="rotate(45 50 88)"></rect>
+      <g id="runnerHud"></g>
+    </svg>
+  </div>
+</div>
+
+<div id="message" class="message">PLAY BALL</div>
+
+<div class="topButtons">
+  <button id="helpBtn">Help</button>
+  <button id="resetBtn">Reset</button>
+</div>
+
+<div class="controls">
+  <div id="leftCluster" class="cluster">
+    <div id="batAim" class="row">
+      <button class="tiny alt" data-aim="up">High</button>
+      <button class="tiny alt" data-aim="mid">Mid</button>
+      <button class="tiny alt" data-aim="low">Low</button>
+    </div>
+    <div id="pitchBtns" class="row hidden">
+      <button class="tiny alt" data-pitch="fastball">Fast</button>
+      <button class="tiny alt" data-pitch="curve">Curve</button>
+      <button class="tiny alt" data-pitch="change">Change</button>
+    </div>
+    <div id="throwGrid" class="throwGrid hidden">
+      <span class="empty"></span><button data-throw="2">2B</button><span class="empty"></span>
+      <button data-throw="3">3B</button><button data-throw="cut">Hold</button><button data-throw="1">1B</button>
+      <span class="empty"></span><button data-throw="H">Home</button><span class="empty"></span>
+    </div>
+  </div>
+
+  <div id="rightCluster" class="cluster">
+    <button id="mainAction" class="action">SWING</button>
+    <button id="secondaryAction" class="gold">Steal</button>
+  </div>
+</div>
+
+<div id="help" class="help">
+  <div class="card">
+    <h1>Council Grove Braves Baseball</h1>
+    <p>This version focuses on cleaner baseball logic: fixed strike zone, clearer pitch timing, real base-state runners, a diamond HUD, and fielders who flow toward the ball or cover bases.</p>
+    <h2>Batting</h2>
+    <ul>
+      <li>Use High/Mid/Low to protect the zone.</li>
+      <li>Tap Swing when the ball reaches the strike zone.</li>
+      <li>The strike zone is the white box behind the plate.</li>
+    </ul>
+    <h2>Defense</h2>
+    <ul>
+      <li>After the ball is fielded, throw buttons appear.</li>
+      <li>Pick the base with the best force/out chance.</li>
+      <li>Fielders now chase the ball, cover bases, and back up the play.</li>
+    </ul>
+    <h2>Pitching</h2>
+    <ul>
+      <li>When the opponent bats, choose Fastball, Curve, or Change.</li>
+      <li>Tap Pitch. Better timing and varied pitch logic creates balls, strikes, contact, and misses.</li>
+    </ul>
+    <button id="closeHelp" class="good">Play</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d", { alpha:false });
+
+  const UI = {
+    awayScore: document.getElementById("awayScore"),
+    homeScore: document.getElementById("homeScore"),
+    inning: document.getElementById("inning"),
+    count: document.getElementById("count"),
+    outs: document.getElementById("outs"),
+    mode: document.getElementById("mode"),
+    message: document.getElementById("message"),
+    main: document.getElementById("mainAction"),
+    secondary: document.getElementById("secondaryAction"),
+    throwGrid: document.getElementById("throwGrid"),
+    pitchBtns: document.getElementById("pitchBtns"),
+    batAim: document.getElementById("batAim"),
+    runnerHud: document.getElementById("runnerHud"),
+    base1: document.getElementById("base1"),
+    base2: document.getElementById("base2"),
+    base3: document.getElementById("base3"),
+    help: document.getElementById("help")
+  };
+
+  let W=0,H=0,DPR=1;
+  function resize(){
+    DPR = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1));
+    W = Math.floor(window.innerWidth);
+    H = Math.floor(window.innerHeight);
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    computeField();
+  }
+  window.addEventListener("resize", resize, {passive:true});
+
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const rnd=(a,b)=>a+Math.random()*(b-a);
+  const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
+  const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+
+  const state = {
+    phase:"ready",
+    half:"bottom",
+    inning:1,
+    outs:0,
+    balls:0,
+    strikes:0,
+    away:0,
+    home:0,
+    batterAim:"mid",
+    pitchType:"fastball",
+    msgTimer:0,
+    playTimer:0,
+    lastTime:0,
+    runners:[],
+    nextRunnerId:1,
+    batter:null,
+    ball:null,
+    fielders:[],
+    activeFielder:null,
+    playOutcome:null,
+    pendingThrow:false,
+    throwTarget:null,
+    throw:null,
+    stealAttempt:null,
+    opponentName:"Wildcats",
+    battingTeam:"home",
+    pitcherFatigue:0,
+    cameraShake:0
+  };
+
+  const teamNames = ["Wildcats","Tigers","Eagles","Panthers","Mustangs","Bulldogs","Rangers","Lions"];
+  document.getElementById("awayName").textContent = pick(teamNames);
+
+  const POS = {};
+  function computeField(){
+    const cx = W/2;
+    const plateY = H * 0.78;
+    const baseGap = Math.min(W*0.255, H*0.205);
+    POS.H = {x:cx, y:plateY};
+    POS["1"] = {x:cx + baseGap, y:plateY - baseGap*0.78};
+    POS["2"] = {x:cx, y:plateY - baseGap*1.56};
+    POS["3"] = {x:cx - baseGap, y:plateY - baseGap*0.78};
+    POS.mound = {x:cx, y:plateY - baseGap*.72};
+    POS.center = {x:cx, y:plateY - baseGap*.82};
+
+    POS.field = {
+      lf:{x:cx-baseGap*1.45,y:plateY-baseGap*2.15},
+      cf:{x:cx,y:plateY-baseGap*2.58},
+      rf:{x:cx+baseGap*1.45,y:plateY-baseGap*2.15},
+      ss:{x:cx-baseGap*.76,y:plateY-baseGap*1.23},
+      second:{x:cx+baseGap*.76,y:plateY-baseGap*1.23},
+      third:{x:cx-baseGap*1.08,y:plateY-baseGap*.66},
+      first:{x:cx+baseGap*1.08,y:plateY-baseGap*.66},
+      pitcher:{x:POS.mound.x,y:POS.mound.y},
+      catcher:{x:cx,y:plateY+baseGap*.22}
+    };
+
+    POS.strike = {
+      x: cx - Math.min(72,W*.18)/2,
+      y: H * 0.39,
+      w: Math.min(72,W*.18),
+      h: Math.min(126,H*.19)
+    };
+  }
+
+  const baseOrder = ["H","1","2","3","H"];
+  function pointOnBasePath(from,to,t){
+    const a=POS[from], b=POS[to];
+    return {x:lerp(a.x,b.x,t), y:lerp(a.y,b.y,t)};
+  }
+  function nextBase(base){
+    if(base==="H") return "1";
+    if(base==="1") return "2";
+    if(base==="2") return "3";
+    if(base==="3") return "H";
+    return "1";
+  }
+  function baseRank(base){ return {H:0,"1":1,"2":2,"3":3}[base] ?? 0; }
+
+  function showMessage(text, ms=1000){
+    UI.message.textContent = text;
+    UI.message.classList.add("show");
+    state.msgTimer = ms/1000;
+  }
+
+  function resetGame(){
+    state.phase="ready";
+    state.half="bottom";
+    state.inning=1;
+    state.outs=0; state.balls=0; state.strikes=0;
+    state.away=0; state.home=0;
+    state.runners=[];
+    state.nextRunnerId=1;
+    state.pitcherFatigue=0;
+    state.ball=null;
+    state.batter=null;
+    state.throw=null;
+    state.pendingThrow=false;
+    state.stealAttempt=null;
+    spawnFielders();
+    updateUI();
+    showMessage("PLAY BALL", 900);
+    setTimeout(()=>startAtBat(), 600);
+  }
+
+  function spawnFielders(){
+    state.fielders = [
+      makeFielder("P","pitcher",POS.field.pitcher),
+      makeFielder("C","catcher",POS.field.catcher),
+      makeFielder("1B","first",POS.field.first),
+      makeFielder("2B","second",POS.field.second),
+      makeFielder("SS","ss",POS.field.ss),
+      makeFielder("3B","third",POS.field.third),
+      makeFielder("LF","lf",POS.field.lf),
+      makeFielder("CF","cf",POS.field.cf),
+      makeFielder("RF","rf",POS.field.rf)
+    ];
+  }
+  function makeFielder(label,role,p){
+    return {
+      label, role,
+      x:p.x, y:p.y,
+      home:{x:p.x,y:p.y},
+      tx:p.x, ty:p.y,
+      speed: role==="cf"||role==="ss"?210: role==="lf"||role==="rf"?200:190,
+      hasBall:false,
+      action:"ready",
+      bob:Math.random()*Math.PI*2
+    };
+  }
+
+  function startAtBat(){
+    state.phase = state.half==="bottom" ? "batting" : "pitching";
+    state.balls=0; state.strikes=0;
+    state.ball=null;
+    state.batter = {x:POS.H.x-30, y:POS.H.y+3, swing:0, running:false, side: state.half==="bottom" ? "braves" : "away"};
+    spawnFielders();
+    assignCoverage();
+    updateUI();
+    if(state.phase==="batting"){
+      UI.main.textContent="SWING";
+      UI.secondary.textContent="Steal";
+      showMessage("Braves at bat",700);
+      setTimeout(()=>newPitchToPlayer(), 600);
+    }else{
+      UI.main.textContent="PITCH";
+      UI.secondary.textContent="Pickoff";
+      showMessage("Take the mound",700);
+    }
+  }
+
+  function newPitchToPlayer(){
+    if(state.phase!=="batting") return;
+    const type = pickWeighted([
+      ["fastball", .46],
+      ["curve", .28],
+      ["change", .26]
+    ]);
+    createPitch(type, true);
+  }
+
+  function pickWeighted(items){
+    const sum=items.reduce((s,i)=>s+i[1],0);
+    let r=Math.random()*sum;
+    for(const i of items){ if((r-=i[1])<=0) return i[0]; }
+    return items[items.length-1][0];
+  }
+
+  function createPitch(type, toPlayer){
+    const zone=POS.strike;
+    const inZoneChance = toPlayer ? .64 : .60;
+    const inZone = Math.random() < inZoneChance;
+    let tx,ty;
+    if(inZone){
+      tx = rnd(zone.x+12, zone.x+zone.w-12);
+      ty = rnd(zone.y+16, zone.y+zone.h-16);
+    }else{
+      const side = pick(["left","right","high","low"]);
+      if(side==="left"){tx=rnd(zone.x-58,zone.x-12);ty=rnd(zone.y-8,zone.y+zone.h+8);}
+      if(side==="right"){tx=rnd(zone.x+zone.w+12,zone.x+zone.w+58);ty=rnd(zone.y-8,zone.y+zone.h+8);}
+      if(side==="high"){tx=rnd(zone.x-12,zone.x+zone.w+12);ty=rnd(zone.y-54,zone.y-12);}
+      if(side==="low"){tx=rnd(zone.x-12,zone.x+zone.w+12);ty=rnd(zone.y+zone.h+12,zone.y+zone.h+52);}
+    }
+    const speed = type==="fastball" ? 1.05 : type==="change" ? 1.45 : 1.28;
+    state.ball = {
+      kind:"pitch",
+      type,
+      toPlayer,
+      inZone,
+      t:0,
+      duration:speed,
+      start:{x:POS.mound.x, y:POS.mound.y-8},
+      target:{x:tx,y:ty},
+      x:POS.mound.x,
+      y:POS.mound.y,
+      z:16,
+      radius:7,
+      hit:false,
+      curve: type==="curve" ? rnd(-44,44) : type==="change" ? rnd(-14,14) : rnd(-8,8),
+      lateWindow:false,
+      crossed:false
+    };
+  }
+
+  function pitchInZone(ball){
+    const z=POS.strike;
+    return ball.x>=z.x && ball.x<=z.x+z.w && ball.y>=z.y && ball.y<=z.y+z.h;
+  }
+  function aimY(){
+    const z=POS.strike;
+    if(state.batterAim==="up") return z.y + z.h*.22;
+    if(state.batterAim==="low") return z.y + z.h*.78;
+    return z.y + z.h*.5;
+  }
+
+  function swingBat(){
+    if(state.phase!=="batting" || !state.ball || state.ball.kind!=="pitch" || state.ball.hit) return;
+    state.batter.swing=0.28;
+    const b=state.ball;
+    const z=POS.strike;
+    const plateTiming = 1 - Math.abs(b.t - .84)/.30;
+    const timing = clamp(plateTiming,0,1);
+    const vertical = 1 - Math.abs(b.y - aimY())/(z.h*.47);
+    const horizontal = 1 - Math.abs(b.x - (z.x+z.w*.5))/(z.w*.82);
+    const contact = clamp((timing*.58 + vertical*.27 + horizontal*.15), 0, 1);
+    if(contact > .43){
+      const quality = clamp((contact-.43)/.57 + rnd(-.10,.12), 0, 1);
+      putBallInPlay(quality);
+    }else{
+      state.strikes++;
+      showMessage("Swing and miss",650);
+      b.hit=true;
+      checkCountAfterPitch();
+    }
+  }
+
+  function aiSwingOrTake(){
+    if(state.phase!=="pitching" || !state.ball || state.ball.kind!=="pitch") return;
+    const b=state.ball;
+    if(b.hit || b.t<.80 || b.t>.93) return;
+    const zone = pitchInZone(b);
+    const discipline = zone ? .78 : .24;
+    const swing = Math.random() < discipline;
+    if(!swing) return;
+    b.hit=true;
+    state.batter.swing=.28;
+    const quality = zone ? rnd(.28,.78) : rnd(.08,.48);
+    if(quality>.23){
+      putBallInPlay(quality);
+    }else{
+      state.strikes++;
+      showMessage("Opponent whiffs",650);
+      checkCountAfterPitch();
+    }
+  }
+
+  function takePitchResult(){
+    const b=state.ball;
+    if(!b || b.kind!=="pitch" || b.hit) return;
+    b.hit=true;
+    const strike = pitchInZone(b);
+    if(strike){
+      state.strikes++;
+      showMessage("Strike",650);
+    }else{
+      state.balls++;
+      showMessage("Ball",650);
+    }
+    checkCountAfterPitch();
+  }
+
+  function checkCountAfterPitch(){
+    updateUI();
+    state.ball=null;
+    if(state.strikes>=3){
+      addOut("Strikeout");
+    }else if(state.balls>=4){
+      walkBatter();
+    }else{
+      setTimeout(()=>{
+        if(state.phase==="batting") newPitchToPlayer();
+        else {}
+      }, 720);
+    }
+  }
+
+  function walkBatter(){
+    showMessage("Walk",700);
+    advanceOnWalk();
+    updateUI();
+    setTimeout(()=>startAtBat(),850);
+  }
+
+  function advanceOnWalk(){
+    const occupied = baseMap();
+    let score=0;
+    if(occupied["1"] && occupied["2"] && occupied["3"]){ score++; removeRunner(occupied["3"]); occupied["3"]=null; }
+    if(occupied["2"] && occupied["1"]){ occupied["2"].base="3"; occupied["2"].from="2"; occupied["2"].to="3"; occupied["2"].progress=1; }
+    if(occupied["1"]){ occupied["1"].base="2"; occupied["1"].from="1"; occupied["1"].to="2"; occupied["1"].progress=1; }
+    addRunnerOnBase("1");
+    if(score) scoreRun(score);
+  }
+
+  function scoreRun(n=1){
+    if(state.half==="bottom") state.home += n;
+    else state.away += n;
+  }
+
+  function addRunnerOnBase(base){
+    state.runners.push({
+      id: state.nextRunnerId++,
+      base, from:base, to:base, progress:0,
+      speed:rnd(.78,.95),
+      forced:false,
+      isOut:false,
+      isSafe:true,
+      active:false,
+      x:POS[base].x,
+      y:POS[base].y
+    });
+  }
+  function removeRunner(r){
+    state.runners = state.runners.filter(x=>x!==r);
+  }
+
+  function baseMap(){
+    const m={"1":null,"2":null,"3":null};
+    for(const r of state.runners){
+      if(!r.isOut && r.base!=="H" && m[r.base]==null && r.progress===0) m[r.base]=r;
+    }
+    return m;
+  }
+
+  function putBallInPlay(quality){
+    if(!state.ball) return;
+    const b=state.ball;
+    b.hit=true;
+    state.phase="fielding";
+    state.pendingThrow=false;
+    UI.throwGrid.classList.add("hidden");
+    state.batter.running=true;
+
+    const spray = rnd(-1,1);
+    const pull = state.half==="bottom" ? spray : -spray;
+    const air = quality > .68 ? pick(["line","fly","deep"]) : quality > .36 ? pick(["ground","line","pop"]) : pick(["ground","bunt","soft"]);
+    const baseGap = Math.abs(POS["1"].x-POS.H.x);
+
+    let target;
+    if(air==="bunt"){
+      target={x:POS.H.x+rnd(-baseGap*.35,baseGap*.35), y:POS.H.y-baseGap*rnd(.18,.45)};
+    }else if(air==="ground"){
+      target={x:POS.center.x + pull*baseGap*rnd(.55,1.45), y:POS.H.y-baseGap*rnd(.70,1.32)};
+    }else if(air==="soft" || air==="pop"){
+      target={x:POS.center.x + pull*baseGap*rnd(.25,.95), y:POS.H.y-baseGap*rnd(.85,1.55)};
+    }else if(air==="line"){
+      target={x:POS.center.x + pull*baseGap*rnd(.75,1.85), y:POS.H.y-baseGap*rnd(1.45,2.25)};
+    }else{
+      target={x:POS.center.x + pull*baseGap*rnd(.55,1.65), y:POS.H.y-baseGap*rnd(2.25,3.0)};
+    }
+    target.x=clamp(target.x, W*.06, W*.94);
+    target.y=clamp(target.y, H*.12, POS.H.y-H*.07);
+
+    state.ball={
+      kind:"batted",
+      subtype:air,
+      x:POS.H.x,
+      y:POS.H.y-12,
+      z:18,
+      start:{x:POS.H.x,y:POS.H.y-12},
+      target,
+      t:0,
+      duration: air==="deep" ? 1.35 : air==="fly" ? 1.22 : air==="line" ? .82 : air==="pop" ? .98 : .58,
+      landed:false,
+      rolling:false,
+      radius:7,
+      fielded:false,
+      holder:null,
+      quality
+    };
+
+    setupBaserunning(quality, air);
+    assignFielderResponsibilities(target, air);
+    showMessage(hitLabel(quality,air), 650);
+  }
+
+  function hitLabel(q,air){
+    if(air==="bunt") return "Bunt!";
+    if(q>.82) return "Driven deep!";
+    if(q>.58) return "Hard contact!";
+    if(air==="ground") return "Ground ball";
+    return "Ball in play";
+  }
+
+  function setupBaserunning(quality, air){
+    const occupied = baseMap();
+    const batter = {
+      id: state.nextRunnerId++,
+      base:"H", from:"H", to:"1", progress:0,
+      speed:rnd(.86,1.02),
+      forced:true, isOut:false, isSafe:false, active:true, batter:true,
+      x:POS.H.x, y:POS.H.y
+    };
+    state.runners.push(batter);
+    state.batter.runnerId=batter.id;
+
+    const force1 = !!occupied["1"];
+    const force2 = !!occupied["1"] && !!occupied["2"];
+    const force3 = !!occupied["1"] && !!occupied["2"] && !!occupied["3"];
+
+    for(const r of state.runners){
+      if(r.isOut || r.batter) continue;
+      r.active=false;
+      r.forced=false;
+      r.from=r.base;
+      r.to=r.base;
+      r.progress=0;
+    }
+
+    // Forced runners always advance.
+    if(occupied["1"]){
+      occupied["1"].active=true; occupied["1"].forced=true; occupied["1"].from="1"; occupied["1"].to="2"; occupied["1"].progress=0;
+    }
+    if(occupied["2"] && force2){
+      occupied["2"].active=true; occupied["2"].forced=true; occupied["2"].from="2"; occupied["2"].to="3"; occupied["2"].progress=0;
+    }
+    if(occupied["3"] && force3){
+      occupied["3"].active=true; occupied["3"].forced=true; occupied["3"].from="3"; occupied["3"].to="H"; occupied["3"].progress=0;
+    }
+
+    // Optional advances based on hit quality and ball depth.
+    const extra = quality + (air==="deep"?.30:air==="line"?.15:air==="ground"?.04:0);
+    if(occupied["2"] && !occupied["2"].active && extra>.45){
+      occupied["2"].active=true; occupied["2"].forced=false; occupied["2"].from="2"; occupied["2"].to= extra>.72 ? "H" : "3"; occupied["2"].progress=0;
+    }
+    if(occupied["3"] && !occupied["3"].active && extra>.36){
+      occupied["3"].active=true; occupied["3"].forced=false; occupied["3"].from="3"; occupied["3"].to="H"; occupied["3"].progress=0;
+    }
+    if(occupied["1"] && extra>.78){
+      // After first advance, aggressive runner can try for third after reaching second.
+      occupied["1"].extraTarget="3";
+    }
+    if(batter && extra>.88){
+      batter.extraTarget="2";
+    }
+  }
+
+  function assignFielderResponsibilities(target, air){
+    let best=null, bestScore=Infinity;
+    for(const f of state.fielders){
+      f.hasBall=false;
+      const d = Math.hypot(f.x-target.x, f.y-target.y);
+      let roleBias=0;
+      if(air==="bunt" && (f.role==="pitcher"||f.role==="catcher"||f.role==="third"||f.role==="first")) roleBias-=90;
+      if((air==="fly"||air==="deep"||air==="line") && (f.role==="lf"||f.role==="cf"||f.role==="rf")) roleBias-=80;
+      if(air==="ground" && ["first","second","ss","third","pitcher"].includes(f.role)) roleBias-=60;
+      const s=d+roleBias;
+      if(s<bestScore){bestScore=s;best=f;}
+    }
+    state.activeFielder=best;
+    for(const f of state.fielders){
+      if(f===best){
+        f.tx=target.x; f.ty=target.y; f.action="chase";
+      }else{
+        setBackupOrCover(f,target,air);
+      }
+    }
+  }
+
+  function setBackupOrCover(f,target,air){
+    const nearFirst = target.x > POS.H.x + Math.abs(POS["1"].x-POS.H.x)*.28;
+    const nearThird = target.x < POS.H.x - Math.abs(POS["1"].x-POS.H.x)*.28;
+    if(f.role==="first"){ f.tx=nearFirst?target.x*.18+POS["1"].x*.82:POS["1"].x; f.ty=nearFirst?target.y*.18+POS["1"].y*.82:POS["1"].y; f.action="cover"; return; }
+    if(f.role==="second"){ f.tx=nearFirst?POS["2"].x+22:POS["2"].x+34; f.ty=POS["2"].y+18; f.action="cover"; return; }
+    if(f.role==="ss"){ f.tx=nearThird?POS["2"].x-22:POS["3"].x+20; f.ty=nearThird?POS["2"].y+18:POS["3"].y+18; f.action="cover"; return; }
+    if(f.role==="third"){ f.tx=nearThird?target.x*.15+POS["3"].x*.85:POS["3"].x; f.ty=nearThird?target.y*.15+POS["3"].y*.85:POS["3"].y; f.action="cover"; return; }
+    if(f.role==="catcher"){ f.tx=POS.H.x; f.ty=POS.H.y+28; f.action="home"; return; }
+    if(f.role==="pitcher"){ f.tx=POS.mound.x + (target.x-POS.mound.x)*.25; f.ty=POS.mound.y + (target.y-POS.mound.y)*.25; f.action="backup"; return; }
+    // Outfielders not fielding move to lanes behind the active ball.
+    f.tx=lerp(f.home.x,target.x,.22);
+    f.ty=lerp(f.home.y,target.y,.18);
+    f.action="backup";
+  }
+
+  function assignCoverage(){
+    for(const f of state.fielders){
+      f.hasBall=false;
+      f.tx=f.home.x; f.ty=f.home.y; f.action="ready";
+    }
+  }
+
+  function updateFielders(dt){
+    for(const f of state.fielders){
+      f.bob += dt*8;
+      const dx=f.tx-f.x, dy=f.ty-f.y;
+      const d=Math.hypot(dx,dy);
+      if(d>1){
+        const sp=f.speed*(f.action==="chase"?1.14:f.action==="cover"?1.0:.78);
+        const step=Math.min(d,sp*dt);
+        f.x += dx/d*step;
+        f.y += dy/d*step;
+      }
+    }
+  }
+
+  function updateRunners(dt){
+    for(const r of state.runners){
+      if(r.isOut) continue;
+      if(r.active){
+        const from=r.from, to=r.to;
+        const pathLen = Math.hypot(POS[to].x-POS[from].x, POS[to].y-POS[from].y);
+        const baseTime = pathLen / (170 * r.speed); // tuned for fair plays
+        r.progress += dt / baseTime;
+        if(r.progress>=1){
+          r.progress=0;
+          r.base=to;
+          r.from=to;
+          r.x=POS[to].x; r.y=POS[to].y;
+          if(to==="H"){
+            r.scored=true;
+            r.active=false;
+            scoreRun(1);
+            showMessage("Run scores!",650);
+          }else if(r.extraTarget && Math.random()<.66){
+            const ex=r.extraTarget;
+            delete r.extraTarget;
+            r.to=ex; r.active=true; r.progress=0; r.forced=false;
+          }else{
+            r.to=to; r.active=false; r.isSafe=true;
+          }
+        }else{
+          const p=pointOnBasePath(from,to,r.progress);
+          r.x=p.x; r.y=p.y;
+        }
+      }else{
+        if(POS[r.base]){
+          r.x=lerp(r.x,POS[r.base].x,.25);
+          r.y=lerp(r.y,POS[r.base].y,.25);
+        }
+      }
+    }
+    state.runners = state.runners.filter(r=>!r.scored && !r.isOut);
+  }
+
+  function updateBall(dt){
+    const b=state.ball;
+    if(!b) return;
+    if(b.kind==="pitch"){
+      b.t += dt / b.duration;
+      const t=clamp(b.t,0,1);
+      const curveOffset = Math.sin(t*Math.PI) * b.curve;
+      b.x = lerp(b.start.x,b.target.x,t)+curveOffset;
+      b.y = lerp(b.start.y,b.target.y,t);
+      b.z = lerp(20,2,t);
+      if(state.phase==="pitching") aiSwingOrTake();
+      if(t>=1){
+        takePitchResult();
+      }
+      return;
+    }
+    if(b.kind==="batted"){
+      if(!b.fielded){
+        b.t += dt / b.duration;
+        const t=clamp(b.t,0,1);
+        const e=ease(t);
+        b.x = lerp(b.start.x,b.target.x,e);
+        b.y = lerp(b.start.y,b.target.y,e);
+        const arc = b.subtype==="ground"||b.subtype==="bunt" ? 12 : b.subtype==="line" ? 46 : b.subtype==="deep" ? 120 : 82;
+        b.z = 3 + Math.sin(t*Math.PI)*arc;
+
+        if(t>=1){
+          b.landed=true;
+          b.rolling = b.subtype==="ground" || b.subtype==="line" || b.subtype==="bunt";
+          if(b.rolling){
+            const rollDir = Math.atan2(b.target.y-POS.H.y, b.target.x-POS.H.x);
+            b.x += Math.cos(rollDir)*70*dt;
+            b.y += Math.sin(rollDir)*45*dt;
+            b.x=clamp(b.x,W*.04,W*.96);
+            b.y=clamp(b.y,H*.10,POS.H.y-12);
+          }
+        }
+        const f=state.activeFielder;
+        if(f && Math.hypot(f.x-b.x, f.y-b.y) < (b.landed?28:18) && (b.landed || b.z<24 || b.subtype==="line")){
+          fieldBall(f);
+        }
+      }
+      return;
+    }
+  }
+
+  function fieldBall(f){
+    const b=state.ball;
+    if(!b || b.fielded) return;
+    b.fielded=true;
+    b.holder=f;
+    f.hasBall=true;
+    f.action="field";
+    f.tx=f.x; f.ty=f.y;
+    state.pendingThrow=true;
+    UI.throwGrid.classList.remove("hidden");
+    showMessage("Choose a throw",850);
+    updateUI();
+  }
+
+  function throwTo(base){
+    if(!state.pendingThrow || !state.ball || !state.ball.holder) return;
+    if(base==="cut"){
+      holdBall();
+      return;
+    }
+    state.pendingThrow=false;
+    UI.throwGrid.classList.add("hidden");
+    const holder=state.ball.holder;
+    holder.hasBall=false;
+    const targetP = POS[base];
+    state.throw = {
+      from:{x:holder.x,y:holder.y},
+      to:{x:targetP.x,y:targetP.y},
+      base,
+      t:0,
+      duration: clamp(Math.hypot(holder.x-targetP.x, holder.y-targetP.y)/640, .32, .82)
+    };
+    state.ball.kind="throw";
+    state.ball.x=holder.x; state.ball.y=holder.y; state.ball.z=20;
+    state.ball.holder=null;
+    showMessage("Throw to " + baseName(base),450);
+  }
+
+  function baseName(b){
+    return b==="1"?"first":b==="2"?"second":b==="3"?"third":"home";
+  }
+
+  function updateThrow(dt){
+    if(!state.throw || !state.ball) return;
+    const th=state.throw;
+    th.t += dt/th.duration;
+    const t=clamp(th.t,0,1);
+    state.ball.x=lerp(th.from.x,th.to.x,t);
+    state.ball.y=lerp(th.from.y,th.to.y,t);
+    state.ball.z=8+Math.sin(t*Math.PI)*35;
+    if(t>=1){
+      resolveThrow(th.base);
+      state.throw=null;
+      state.ball=null;
+      setTimeout(()=>endPlayIfSettled(), 520);
+    }
+  }
+
+  function resolveThrow(base){
+    // Find runner trying to reach that base, prioritizing forced runners then closest.
+    let candidates = state.runners.filter(r=>!r.isOut && r.active && r.to===base);
+    candidates.sort((a,b)=>(b.forced-a.forced) || b.progress-a.progress);
+    let r=candidates[0];
+
+    if(!r){
+      // Tag chance if runner has already reached the target base recently.
+      r = state.runners.find(x=>!x.isOut && !x.active && x.base===base && x.isSafe);
+      if(r && Math.random()<.12){
+        r.isOut=true;
+        state.outs++;
+        showMessage("Tagged out at " + baseName(base),850);
+      }else{
+        showMessage("No play",650);
+      }
+      updateUI();
+      return;
+    }
+
+    const runnerArrival = r.progress;
+    const force = r.forced || r.batter || base==="1";
+    const playMargin = force ? .90 : .82;
+    const safe = runnerArrival >= playMargin;
+    if(safe){
+      showMessage("SAFE at " + baseName(base),850);
+      r.progress=1;
+      r.base=base; r.from=base; r.to=base; r.active=false; r.isSafe=true; r.x=POS[base].x; r.y=POS[base].y;
+    }else{
+      r.isOut=true;
+      state.outs++;
+      showMessage("OUT at " + baseName(base),850);
+    }
+    updateUI();
+  }
+
+  function holdBall(){
+    state.pendingThrow=false;
+    UI.throwGrid.classList.add("hidden");
+    showMessage("Held the ball",650);
+    setTimeout(()=>endPlayIfSettled(),620);
+  }
+
+  function endPlayIfSettled(){
+    for(const r of state.runners){
+      if(r.active){
+        r.progress=1;
+        if(r.to==="H"){
+          r.scored=true;
+          scoreRun(1);
+        }else{
+          r.base=r.to; r.from=r.to; r.to=r.base; r.active=false; r.isSafe=true;
+          r.x=POS[r.base].x; r.y=POS[r.base].y;
+        }
+      }
+    }
+    state.runners=state.runners.filter(r=>!r.scored && !r.isOut);
+    cleanupBases();
+    updateUI();
+    if(state.outs>=3) changeSides();
+    else setTimeout(()=>startAtBat(), 650);
+  }
+
+  function cleanupBases(){
+    // If two runners somehow end on same base, keep lead runner and advance/trail logically.
+    const occupied={};
+    state.runners.sort((a,b)=>baseRank(b.base)-baseRank(a.base));
+    for(const r of state.runners){
+      if(r.base==="H") continue;
+      if(occupied[r.base]){
+        // Trail runner is out if collision creates illegal base state.
+        r.isOut=true;
+        state.outs++;
+      }else{
+        occupied[r.base]=r;
+      }
+    }
+    state.runners=state.runners.filter(r=>!r.isOut);
+  }
+
+  function addOut(label){
+    state.outs++;
+    showMessage(label || "Out",850);
+    state.ball=null;
+    updateUI();
+    if(state.outs>=3) setTimeout(()=>changeSides(),780);
+    else setTimeout(()=>startAtBat(),850);
+  }
+
+  function changeSides(){
+    showMessage("Side retired",900);
+    state.runners=[];
+    state.outs=0; state.balls=0; state.strikes=0;
+    state.half = state.half==="bottom" ? "top" : "bottom";
+    if(state.half==="bottom") state.inning++;
+    if(state.inning>3){
+      endGame();
+      return;
+    }
+    updateUI();
+    setTimeout(()=>startAtBat(),1000);
+  }
+
+  function endGame(){
+    state.phase="gameover";
+    const msg = state.home>=state.away ? "Braves win!" : "Final";
+    showMessage(`${msg} ${state.home}-${state.away}`,3000);
+    UI.main.textContent="NEW GAME";
+    UI.secondary.textContent="Reset";
+    UI.pitchBtns.classList.add("hidden");
+    UI.batAim.classList.add("hidden");
+    UI.throwGrid.classList.add("hidden");
+    updateUI();
+  }
+
+  function attemptSteal(){
+    if(state.phase!=="batting") return;
+    const m=baseMap();
+    const lead = m["2"] || m["1"];
+    if(!lead){ showMessage("No runner to steal",600); return; }
+    const target = lead.base==="2" ? "3" : "2";
+    if(m[target]){ showMessage("Base occupied",600); return; }
+    lead.active=true; lead.forced=false; lead.from=lead.base; lead.to=target; lead.progress=0; lead.speed*=1.05;
+    state.stealAttempt=lead;
+    showMessage("Runner goes!",650);
+    setTimeout(()=>{
+      if(!lead || lead.isOut || !state.runners.includes(lead)) return;
+      const catcher = state.fielders.find(f=>f.role==="catcher");
+      if(catcher){
+        state.ball = {kind:"throw", x:catcher.x,y:catcher.y,z:15,radius:7};
+        state.throw = {from:{x:catcher.x,y:catcher.y}, to:{x:POS[target].x,y:POS[target].y}, base:target, t:0, duration:.58};
+      }
+    }, 450);
+  }
+
+  function pickoff(){
+    if(state.phase!=="pitching") return;
+    const m=baseMap();
+    const lead = m["1"] || m["2"] || m["3"];
+    if(!lead){ showMessage("No runner on",600); return; }
+    const chance = .08 + (lead.active?.16:0);
+    if(Math.random()<chance){
+      lead.isOut=true; state.outs++;
+      showMessage("Picked off!",900);
+      updateUI();
+      if(state.outs>=3) setTimeout(()=>changeSides(),700);
+    }else{
+      showMessage("Runner back safely",700);
+    }
+  }
+
+  function pitchAsPlayer(){
+    if(state.phase!=="pitching") return;
+    if(state.ball && state.ball.kind==="pitch") return;
+    createPitch(state.pitchType, false);
+  }
+
+  function updateUI(){
+    UI.awayScore.textContent=state.away;
+    UI.homeScore.textContent=state.home;
+    UI.inning.textContent=(state.half==="top"?"Top ":"Bot ")+state.inning;
+    UI.count.textContent=state.balls+"-"+state.strikes;
+    UI.outs.textContent=state.outs + (state.outs===1?" out":" outs");
+    UI.mode.textContent = state.phase==="batting" ? "Batting" : state.phase==="pitching" ? "Pitching" : state.phase==="fielding" ? "Defense" : state.phase==="gameover" ? "Final" : "Ready";
+
+    UI.pitchBtns.classList.toggle("hidden", state.phase!=="pitching");
+    UI.batAim.classList.toggle("hidden", state.phase!=="batting");
+    UI.secondary.classList.toggle("hidden", state.phase==="fielding");
+    if(state.phase==="batting"){ UI.main.textContent="SWING"; UI.secondary.textContent="Steal"; }
+    if(state.phase==="pitching"){ UI.main.textContent="PITCH"; UI.secondary.textContent="Pickoff"; }
+    if(state.phase==="fielding"){ UI.main.textContent="HOLD"; }
+
+    renderDiamondHud();
+  }
+
+  function renderDiamondHud(){
+    const occ=baseMap();
+    UI.base1.classList.toggle("occ",!!occ["1"]);
+    UI.base2.classList.toggle("occ",!!occ["2"]);
+    UI.base3.classList.toggle("occ",!!occ["3"]);
+    UI.runnerHud.innerHTML="";
+    const mapSvg = {
+      H:{x:50,y:88}, "1":{x:88,y:50}, "2":{x:50,y:12}, "3":{x:12,y:50}
+    };
+    for(const r of state.runners){
+      if(r.isOut || r.scored) continue;
+      let p;
+      if(r.active){
+        const a=mapSvg[r.from], b=mapSvg[r.to];
+        p={x:lerp(a.x,b.x,r.progress), y:lerp(a.y,b.y,r.progress)};
+      }else{
+        p=mapSvg[r.base] || mapSvg.H;
+      }
+      const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("class","runnerDot");
+      c.setAttribute("cx",p.x);
+      c.setAttribute("cy",p.y);
+      c.setAttribute("r",r.batter?4.7:4.3);
+      UI.runnerHud.appendChild(c);
+    }
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    drawBackground();
+    if(state.phase==="batting" || state.phase==="pitching" || (state.ball && state.ball.kind==="pitch")){
+      drawBattingView();
+    }else{
+      drawFieldView();
+    }
+    drawRunners();
+    drawFielders();
+    drawBall();
+    drawForegroundLabels();
+  }
+
+  function drawBackground(){
+    const g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,"#0f5030");
+    g.addColorStop(.55,"#176b34");
+    g.addColorStop(1,"#0d351e");
+    ctx.fillStyle=g;
+    ctx.fillRect(0,0,W,H);
+    // mow stripes
+    ctx.save();
+    ctx.globalAlpha=.12;
+    ctx.fillStyle="#ffffff";
+    for(let i=-W;i<W*2;i+=90){
+      ctx.beginPath();
+      ctx.moveTo(i,0); ctx.lineTo(i+42,0); ctx.lineTo(i+W*.55,H); ctx.lineTo(i+W*.55-42,H);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawFieldView(){
+    // Outfield arc
+    const cx=POS.H.x, cy=POS.H.y;
+    const rg=ctx.createRadialGradient(cx,cy,60,cx,cy,Math.max(W,H)*.72);
+    rg.addColorStop(0,"rgba(255,255,255,.02)");
+    rg.addColorStop(1,"rgba(0,0,0,.16)");
+    ctx.fillStyle=rg;
+    ctx.fillRect(0,0,W,H);
+
+    // Dirt infield diamond
+    ctx.save();
+    ctx.fillStyle=ctx.createLinearGradient(0,POS["2"].y,0,POS.H.y);
+    ctx.fillStyle= "#9b612f";
+    ctx.strokeStyle="rgba(255,255,255,.76)";
+    ctx.lineWidth=3;
+    pathDiamond(POS.H,POS["1"],POS["2"],POS["3"]);
+    ctx.fill();
+    ctx.stroke();
+
+    // grass cutout inside
+    ctx.fillStyle="#1e7738";
+    pathDiamond(
+      lerpPt(POS.H,POS.center,.22),
+      lerpPt(POS["1"],POS.center,.22),
+      lerpPt(POS["2"],POS.center,.22),
+      lerpPt(POS["3"],POS.center,.22)
+    );
+    ctx.fill();
+
+    // base paths
+    ctx.strokeStyle="rgba(255,255,255,.86)";
+    ctx.lineWidth=2;
+    drawLine(POS.H,POS["1"]);
+    drawLine(POS["1"],POS["2"]);
+    drawLine(POS["2"],POS["3"]);
+    drawLine(POS["3"],POS.H);
+
+    // Mound
+    ctx.fillStyle="#8b5528";
+    ctx.beginPath(); ctx.ellipse(POS.mound.x,POS.mound.y,36,24,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#f4f1df";
+    roundRect(POS.mound.x-16,POS.mound.y-3,32,6,3); ctx.fill();
+
+    // Bases
+    drawBase(POS.H,"H",16);
+    drawBase(POS["1"],"1B",13);
+    drawBase(POS["2"],"2B",13);
+    drawBase(POS["3"],"3B",13);
+
+    ctx.restore();
+  }
+
+  function drawBattingView(){
+    // Catcher/batter perspective with correct proportions.
+    drawFieldView();
+
+    // Darken distant field slightly for batter view focus.
+    ctx.save();
+    ctx.fillStyle="rgba(0,0,0,.12)";
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+
+    const z=POS.strike;
+    // Plate area dirt
+    ctx.save();
+    ctx.fillStyle="#9b612f";
+    ctx.beginPath();
+    ctx.ellipse(POS.H.x, POS.H.y+25, Math.min(150,W*.34), 64, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Home plate
+    ctx.fillStyle="#f4f1df";
+    ctx.strokeStyle="rgba(0,0,0,.38)";
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(POS.H.x-22,POS.H.y-10);
+    ctx.lineTo(POS.H.x+22,POS.H.y-10);
+    ctx.lineTo(POS.H.x+22,POS.H.y+10);
+    ctx.lineTo(POS.H.x,POS.H.y+30);
+    ctx.lineTo(POS.H.x-22,POS.H.y+10);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+
+    // Batter box
+    ctx.strokeStyle="rgba(255,255,255,.52)";
+    ctx.lineWidth=2;
+    ctx.strokeRect(POS.H.x-105,POS.H.y-60,52,116);
+    ctx.strokeRect(POS.H.x+53,POS.H.y-60,52,116);
+
+    // Batter silhouette
+    const swing = state.batter ? state.batter.swing : 0;
+    drawBatter(POS.H.x-78, POS.H.y-26, swing);
+
+    // Catcher
+    drawCatcher(POS.H.x+78, POS.H.y+6);
+
+    // Strike zone fixed to realistic tall box over plate
+    ctx.fillStyle="rgba(255,255,255,.055)";
+    ctx.strokeStyle="rgba(255,255,255,.92)";
+    ctx.lineWidth=3;
+    roundRect(z.x,z.y,z.w,z.h,7);
+    ctx.fill(); ctx.stroke();
+
+    // zone thirds
+    ctx.strokeStyle="rgba(255,255,255,.25)";
+    ctx.lineWidth=1.5;
+    drawLine({x:z.x,y:z.y+z.h/3},{x:z.x+z.w,y:z.y+z.h/3});
+    drawLine({x:z.x,y:z.y+z.h*2/3},{x:z.x+z.w,y:z.y+z.h*2/3});
+    ctx.fillStyle="rgba(255,255,255,.75)";
+    ctx.font="800 11px system-ui";
+    ctx.textAlign="center";
+    ctx.fillText("STRIKE ZONE", z.x+z.w/2, z.y-8);
+
+    // aim band
+    const ay=aimY();
+    ctx.strokeStyle="rgba(255,206,69,.72)";
+    ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(z.x-10,ay); ctx.lineTo(z.x+z.w+10,ay); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawBatter(x,y,swing){
+    ctx.save();
+    ctx.translate(x,y);
+    const s=1;
+    ctx.lineWidth=5;
+    ctx.lineCap="round";
+    ctx.strokeStyle="#101820";
+    ctx.fillStyle=state.half==="bottom"?"#d82028":"#3a74ff";
+    // legs
+    drawLine({x:-8,y:54},{x:-18,y:83});
+    drawLine({x:8,y:54},{x:20,y:83});
+    // body
+    roundRect(-18,12,36,48,15); ctx.fill();
+    // head
+    ctx.fillStyle="#f2bf88";
+    ctx.beginPath(); ctx.arc(0,0,14,0,Math.PI*2); ctx.fill();
+    // helmet
+    ctx.fillStyle=state.half==="bottom"?"#142c57":"#111";
+    ctx.beginPath(); ctx.arc(0,-3,15,Math.PI,Math.PI*2); ctx.fill();
+    // arms
+    ctx.strokeStyle="#f2bf88";
+    drawLine({x:-8,y:22},{x:-30,y:36});
+    drawLine({x:8,y:24},{x:29,y:36});
+    // bat
+    ctx.strokeStyle="#d9c08a";
+    ctx.lineWidth=6;
+    const a = -0.82 - swing*5.4;
+    ctx.beginPath();
+    ctx.moveTo(26,34);
+    ctx.lineTo(26+Math.cos(a)*78,34+Math.sin(a)*78);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawCatcher(x,y){
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.fillStyle="#13243f";
+    ctx.strokeStyle="#0b1118";
+    ctx.lineWidth=4;
+    roundRect(-19,12,38,38,10); ctx.fill();
+    ctx.fillStyle="#202c38";
+    ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#2b1b0e";
+    ctx.beginPath(); ctx.ellipse(-30,35,16,12,-.4,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawRunners(){
+    for(const r of state.runners){
+      if(r.isOut || r.scored) continue;
+      const p={x:r.x,y:r.y};
+      drawPlayer(p.x,p.y, r.batter?"B":"R", state.half==="bottom"?"#d82028":"#3a74ff", r.active);
+    }
+  }
+
+  function drawFielders(){
+    for(const f of state.fielders){
+      const moving = Math.hypot(f.tx-f.x,f.ty-f.y)>4;
+      drawPlayer(f.x,f.y,f.label,"#e9eef5",moving, f.hasBall);
+      if(f.action==="chase"){
+        ctx.save();
+        ctx.strokeStyle="rgba(255,255,255,.18)";
+        ctx.lineWidth=1;
+        ctx.setLineDash([3,4]);
+        ctx.beginPath(); ctx.moveTo(f.x,f.y); ctx.lineTo(f.tx,f.ty); ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawPlayer(x,y,label,color,moving=false,hasBall=false){
+    ctx.save();
+    const shadow= Math.max(7, 10 + y/H*6);
+    ctx.fillStyle="rgba(0,0,0,.24)";
+    ctx.beginPath(); ctx.ellipse(x,y+15,shadow,shadow*.42,0,0,Math.PI*2); ctx.fill();
+    const bob = moving ? Math.sin(performance.now()/95)*2.2 : 0;
+    ctx.translate(x,y+bob);
+    // legs
+    ctx.strokeStyle="#111";
+    ctx.lineWidth=4;
+    ctx.lineCap="round";
+    drawLine({x:-5,y:13},{x:-10,y:26});
+    drawLine({x:5,y:13},{x:10,y:26});
+    // body
+    ctx.fillStyle=color;
+    roundRect(-11,-5,22,22,7); ctx.fill();
+    ctx.strokeStyle="rgba(0,0,0,.35)";
+    ctx.lineWidth=2; ctx.stroke();
+    // head
+    ctx.fillStyle="#f0bd88";
+    ctx.beginPath(); ctx.arc(0,-13,8,0,Math.PI*2); ctx.fill();
+    // cap
+    ctx.fillStyle= label==="B"||label==="R" ? "#142c57" : "#222";
+    ctx.beginPath(); ctx.arc(0,-16,8,Math.PI,Math.PI*2); ctx.fill();
+    // label
+    ctx.fillStyle="#08120d";
+    ctx.font="900 9px system-ui";
+    ctx.textAlign="center";
+    ctx.fillText(label,0,8);
+    if(hasBall){
+      ctx.fillStyle="#fff";
+      ctx.beginPath(); ctx.arc(14,-8,4,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawBall(){
+    const b=state.ball;
+    if(!b) return;
+    ctx.save();
+    const shadowScale=clamp(1-(b.z||0)/120,.28,1);
+    ctx.fillStyle="rgba(0,0,0,.26)";
+    ctx.beginPath(); ctx.ellipse(b.x,b.y+10,10*shadowScale,4*shadowScale,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#f9f4e8";
+    ctx.strokeStyle="#c83232";
+    ctx.lineWidth=1.5;
+    const r=b.radius || 7;
+    ctx.beginPath(); ctx.arc(b.x,b.y-(b.z||0)*.24,r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle="#c83232";
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.arc(b.x-2,b.y-(b.z||0)*.24,r*.55,-1.2,1.2);
+    ctx.arc(b.x+2,b.y-(b.z||0)*.24,r*.55,1.94,4.34);
+    ctx.stroke();
+    if(b.kind==="pitch"){
+      ctx.fillStyle="rgba(255,255,255,.8)";
+      ctx.font="900 11px system-ui";
+      ctx.textAlign="center";
+      ctx.fillText(b.type.toUpperCase(), b.x, b.y-(b.z||0)*.24-14);
+    }
+    ctx.restore();
+  }
+
+  function drawForegroundLabels(){
+    if(state.phase==="fielding" && state.pendingThrow){
+      ctx.save();
+      ctx.fillStyle="rgba(0,0,0,.55)";
+      ctx.strokeStyle="rgba(255,255,255,.18)";
+      ctx.lineWidth=1;
+      roundRect(W/2-123, H*.16, 246, 36, 18); ctx.fill(); ctx.stroke();
+      ctx.fillStyle="#fff";
+      ctx.font="900 14px system-ui";
+      ctx.textAlign="center";
+      ctx.fillText("FIELD IT. MAKE THE THROW.", W/2, H*.16+23);
+      ctx.restore();
+    }
+  }
+
+  function pathDiamond(a,b,c,d){
+    ctx.beginPath();
+    ctx.moveTo(a.x,a.y);
+    ctx.lineTo(b.x,b.y);
+    ctx.lineTo(c.x,c.y);
+    ctx.lineTo(d.x,d.y);
+    ctx.closePath();
+  }
+  function lerpPt(a,b,t){return {x:lerp(a.x,b.x,t), y:lerp(a.y,b.y,t)}}
+  function drawLine(a,b){
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+  }
+  function drawBase(p,label,size=12){
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    ctx.rotate(Math.PI/4);
+    ctx.fillStyle="#f4f1df";
+    ctx.strokeStyle="rgba(0,0,0,.38)";
+    ctx.lineWidth=1.5;
+    ctx.fillRect(-size/2,-size/2,size,size);
+    ctx.strokeRect(-size/2,-size/2,size,size);
+    ctx.restore();
+    ctx.fillStyle="rgba(255,255,255,.82)";
+    ctx.font="900 10px system-ui";
+    ctx.textAlign="center";
+    ctx.fillText(label,p.x,p.y-16);
+  }
+  function roundRect(x,y,w,h,r){
+    r=Math.min(r,w/2,h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function update(dt){
+    if(state.msgTimer>0){
+      state.msgTimer-=dt;
+      if(state.msgTimer<=0) UI.message.classList.remove("show");
+    }
+    if(state.batter && state.batter.swing>0) state.batter.swing=Math.max(0,state.batter.swing-dt);
+    updateFielders(dt);
+    updateRunners(dt);
+    updateBall(dt);
+    updateThrow(dt);
+    updateUI();
+  }
+
+  function loop(ts){
+    if(!state.lastTime) state.lastTime=ts;
+    const dt=clamp((ts-state.lastTime)/1000,0,.033);
+    state.lastTime=ts;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // Inputs
+  UI.main.addEventListener("click",()=>{
+    if(state.phase==="batting") swingBat();
+    else if(state.phase==="pitching") pitchAsPlayer();
+    else if(state.phase==="fielding") holdBall();
+    else if(state.phase==="gameover") resetGame();
+  });
+  UI.secondary.addEventListener("click",()=>{
+    if(state.phase==="batting") attemptSteal();
+    else if(state.phase==="pitching") pickoff();
+    else if(state.phase==="gameover") resetGame();
+  });
+
+  document.querySelectorAll("[data-aim]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state.batterAim=btn.dataset.aim;
+      showMessage("Aim: " + btn.textContent,450);
+    });
+  });
+  document.querySelectorAll("[data-pitch]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state.pitchType=btn.dataset.pitch;
+      showMessage(btn.textContent + " selected",450);
+    });
+  });
+  document.querySelectorAll("[data-throw]").forEach(btn=>{
+    btn.addEventListener("click",()=>throwTo(btn.dataset.throw));
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", resetGame);
+  document.getElementById("helpBtn").addEventListener("click",()=>UI.help.classList.add("show"));
+  document.getElementById("closeHelp").addEventListener("click",()=>UI.help.classList.remove("show"));
+
+  window.addEventListener("keydown",e=>{
+    if(e.code==="Space"){ e.preventDefault(); UI.main.click(); }
+    if(e.key==="1") throwTo("1");
+    if(e.key==="2") throwTo("2");
+    if(e.key==="3") throwTo("3");
+    if(e.key==="h"||e.key==="H") throwTo("H");
+    if(e.key==="r"||e.key==="R") resetGame();
+  });
+
+  resize();
+  resetGame();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
